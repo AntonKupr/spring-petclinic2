@@ -1,15 +1,17 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<?xml version="1.0"?>
+<project>
   <modelVersion>4.0.0</modelVersion>
+  <name>Spring PetClinic TeamCity Configuration</name>
   <groupId>org.springframework.samples.petclinic</groupId>
-  <artifactId>teamcity</artifactId>
+  <artifactId>spring-petclinic-teamcity-config</artifactId>
   <version>1.0-SNAPSHOT</version>
-  <packaging>pom</packaging>
 
-  <properties>
-    <kotlin.version>1.9.0</kotlin.version>
-    <teamcity.dsl.version>2023.11</teamcity.dsl.version>
-  </properties>
+  <parent>
+    <groupId>org.jetbrains.teamcity</groupId>
+    <artifactId>configs-dsl-kotlin-parent</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <relativePath/>
+  </parent>
 
   <repositories>
     <repository>
@@ -21,7 +23,7 @@
     </repository>
     <repository>
       <id>teamcity-server</id>
-      <url>https://teamcity.jetbrains.com/app/dsl-plugins-repository</url>
+      <url>https://cloud.teamcity.com/app/dsl-plugins-repository</url>
       <snapshots>
         <enabled>true</enabled>
       </snapshots>
@@ -30,32 +32,31 @@
 
   <pluginRepositories>
     <pluginRepository>
-      <id>jetbrains-all</id>
+      <id>JetBrains</id>
       <url>https://download.jetbrains.com/teamcity-repository</url>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
     </pluginRepository>
   </pluginRepositories>
 
   <build>
-    <sourceDirectory>${project.basedir}</sourceDirectory>
+    <sourceDirectory>${basedir}</sourceDirectory>
     <plugins>
       <plugin>
         <artifactId>kotlin-maven-plugin</artifactId>
         <groupId>org.jetbrains.kotlin</groupId>
         <version>${kotlin.version}</version>
+
+        <configuration/>
         <executions>
           <execution>
             <id>compile</id>
-            <phase>compile</phase>
+            <phase>process-sources</phase>
             <goals>
               <goal>compile</goal>
             </goals>
           </execution>
           <execution>
             <id>test-compile</id>
-            <phase>test-compile</phase>
+            <phase>process-test-sources</phase>
             <goals>
               <goal>test-compile</goal>
             </goals>
@@ -84,7 +85,8 @@
     <dependency>
       <groupId>org.jetbrains.teamcity</groupId>
       <artifactId>configs-dsl-kotlin-plugins</artifactId>
-      <version>${teamcity.dsl.version}</version>
+      <version>1.0-SNAPSHOT</version>
+      <type>pom</type>
       <scope>compile</scope>
     </dependency>
     <dependency>
