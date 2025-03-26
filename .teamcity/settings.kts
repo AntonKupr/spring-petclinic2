@@ -13,20 +13,23 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
  * the Spring PetClinic application.
  */
 
+// The version of TeamCity DSL being used
 version = "2023.11"
 
+// Project configuration
 project {
-    description = "Spring PetClinic TeamCity Configuration"
+    // Project details
+    name = "Spring PetClinic"
+    description = "Spring PetClinic Sample Application"
 
-    // Define VCS Root
+    // VCS Root definition
     val vcsRoot = GitVcsRoot {
         id("SpringPetClinicVcs")
         name = "Spring PetClinic Git Repository"
         url = "https://github.com/spring-projects/spring-petclinic.git"
-        branch = "refs/heads/main"
+        branch = "main"
         branchSpec = "+:refs/heads/*"
     }
-
     vcsRoot(vcsRoot)
 
     // Build Configuration
@@ -39,21 +42,17 @@ project {
             root(vcsRoot)
         }
 
+        requirements {
+            contains("env.JDK_VERSION", "17")
+        }
+
         steps {
-            // Clean and package with Maven
+            // Maven build step
             maven {
                 name = "Clean and Package"
                 goals = "clean package"
                 runnerArgs = "-Dmaven.test.failure.ignore=true"
-                jdkHome = "%env.JDK_17_0%"
-            }
-
-            // Alternative Gradle build step
-            gradle {
-                name = "Gradle Build (Alternative)"
-                tasks = "clean build"
-                gradleParams = "-x test" // Skip tests as they're already run by Maven
-                enabled = false // Disabled by default, can be enabled if needed
+                jdkHome = "%env.JDK_17_HOME%"
             }
         }
 
@@ -64,8 +63,7 @@ project {
         }
 
         features {
-            perfmon {
-            }
+            perfmon {}
         }
 
         artifactRules = """
@@ -78,15 +76,21 @@ project {
     buildType {
         id("Deploy")
         name = "Deploy"
-        description = "Deploys the application to a specified environment"
+        description = "Deploys the application to a specified environment (dev, staging, or prod)"
 
         vcs {
             root(vcsRoot)
         }
 
+        requirements {
+            contains("env.JDK_VERSION", "17")
+            exists("docker.version")
+        }
+
         params {
             select("env.DEPLOY_ENV", "dev", label = "Deployment Environment", 
-                   options = listOf("dev", "staging", "prod"))
+                options = listOf("dev", "staging", "prod"), 
+                description = "Select the environment to deploy to")
         }
 
         steps {
@@ -95,8 +99,6 @@ project {
                 name = "Build Docker Image"
                 scriptContent = """
                     #!/bin/bash
-
-                    echo "Building Docker image for Spring PetClinic"
                     ./mvnw spring-boot:build-image -Dspring-boot.build-image.imageName=spring-petclinic:latest
                 """.trimIndent()
             }
@@ -106,11 +108,10 @@ project {
                 name = "Deploy to Environment"
                 scriptContent = """
                     #!/bin/bash
+                    echo "Deploying to %env.DEPLOY_ENV% environment..."
 
-                    ENV="%env.DEPLOY_ENV%"
-                    echo "Deploying to """ + "\$ENV" + """ environment"
-
-                    case """ + "\"\$ENV\"" + """ in
+                    # Example deployment script - customize as needed
+                    case "%env.DEPLOY_ENV%" in
                         dev)
                             echo "Deploying to development environment"
                             # Add deployment commands for dev
@@ -121,10 +122,10 @@ project {
                             ;;
                         prod)
                             echo "Deploying to production environment"
-                            # Add deployment commands for production
+                            # Add deployment commands for prod
                             ;;
                         *)
-                            echo "Unknown environment: """ + "\$ENV" + """"
+                            echo "Unknown environment: %env.DEPLOY_ENV%"
                             exit 1
                             ;;
                     esac
@@ -132,15 +133,5 @@ project {
             }
         }
 
-        dependencies {
-            snapshot(RelativeId("Build")) {
-                onDependencyFailure = FailureAction.FAIL_TO_START
-            }
-        }
-
-        features {
-            perfmon {
-            }
-        }
     }
 }
