@@ -1,193 +1,146 @@
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.GitVcsRoot
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.perfmon
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.maven
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
-import jetbrains.buildServer.configs.kotlin.v2019_2.Project
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 
 /*
-The settings script is an entry point for defining a TeamCity
-project hierarchy. The script should contain a single call to the
-project() function with a Project instance or an init function as
-an argument.
-*/
+ * Spring PetClinic TeamCity Configuration
+ * 
+ * This file defines the TeamCity build configurations for building and deploying
+ * the Spring PetClinic application.
+ */
 
 version = "2023.11"
 
 project {
-    description = "Spring PetClinic Sample Application"
-
-    // Default parameters for all build configurations
-    params {
-        param("env.JAVA_HOME", "%env.JDK_17%")
+    description = "Spring PetClinic TeamCity Configuration"
+    
+    // Define VCS Root
+    val vcsRoot = GitVcsRoot {
+        id("SpringPetClinicVcs")
+        name = "Spring PetClinic Git Repository"
+        url = "https://github.com/spring-projects/spring-petclinic.git"
+        branch = "refs/heads/main"
+        branchSpec = "+:refs/heads/*"
     }
-
-    // Build configuration
-    val build = buildType {
+    
+    vcsRoot(vcsRoot)
+    
+    // Build Configuration
+    buildType {
         id("Build")
         name = "Build"
         description = "Builds the application, runs tests, and generates code coverage reports"
-
+        
         vcs {
-            root(DslContext.settingsRoot)
+            root(vcsRoot)
         }
-
+        
         steps {
+            // Clean and package with Maven
             maven {
                 name = "Clean and Package"
                 goals = "clean package"
                 runnerArgs = "-Dmaven.test.failure.ignore=true"
-                mavenVersion = auto()
-                jdkHome = "%env.JDK_17%"
+                jdkHome = "%env.JDK_17_0%"
+            }
+            
+            // Alternative Gradle build step
+            gradle {
+                name = "Gradle Build (Alternative)"
+                tasks = "clean build"
+                gradleParams = "-x test" // Skip tests as they're already run by Maven
+                enabled = false // Disabled by default, can be enabled if needed
             }
         }
-
+        
         triggers {
             vcs {
                 branchFilter = "+:*"
             }
         }
-
+        
         features {
-            perfmon {}
+            perfmon {
+            }
         }
-
+        
         artifactRules = """
             target/*.jar
-            target/site/jacoco => coverage-report.zip
+            target/site/jacoco => coverage-reports.zip
         """.trimIndent()
-
-        requirements {
-            exists("env.JDK_17")
-        }
     }
-
-    // Deploy to Dev configuration
+    
+    // Deploy Configuration
     buildType {
-        id("DeployToDev")
-        name = "Deploy to Dev"
-        description = "Builds a Docker image and deploys to the Dev environment"
-
+        id("Deploy")
+        name = "Deploy"
+        description = "Deploys the application to a specified environment"
+        
         vcs {
-            root(DslContext.settingsRoot)
+            root(vcsRoot)
         }
-
+        
+        params {
+            select("env.DEPLOY_ENV", "dev", label = "Deployment Environment", 
+                   options = listOf("dev", "staging", "prod"))
+        }
+        
         steps {
+            // Build Docker image
             script {
                 name = "Build Docker Image"
                 scriptContent = """
-                    ./mvnw spring-boot:build-image -Dspring-boot.build-image.imageName=spring-petclinic:dev
+                    #!/bin/bash
+                    
+                    echo "Building Docker image for Spring PetClinic"
+                    ./mvnw spring-boot:build-image -Dspring-boot.build-image.imageName=spring-petclinic:latest
                 """.trimIndent()
             }
+            
+            // Deploy to environment
             script {
-                name = "Deploy to Dev Environment"
+                name = "Deploy to Environment"
                 scriptContent = """
-                    echo "Deploying to Dev environment..."
-                    # Deployment commands would go here
-                    # For example:
-                    # docker run -d -p 8080:8080 --name spring-petclinic-dev spring-petclinic:dev
+                    #!/bin/bash
+                    
+                    ENV="%env.DEPLOY_ENV%"
+                    echo "Deploying to $ENV environment"
+                    
+                    case "$ENV" in
+                        dev)
+                            echo "Deploying to development environment"
+                            # Add deployment commands for dev
+                            ;;
+                        staging)
+                            echo "Deploying to staging environment"
+                            # Add deployment commands for staging
+                            ;;
+                        prod)
+                            echo "Deploying to production environment"
+                            # Add deployment commands for production
+                            ;;
+                        *)
+                            echo "Unknown environment: $ENV"
+                            exit 1
+                            ;;
+                    esac
                 """.trimIndent()
             }
         }
-
+        
         dependencies {
-            snapshot(build) {
+            snapshot(RelativeId("Build")) {
                 onDependencyFailure = FailureAction.FAIL_TO_START
             }
-            artifacts(build) {
-                artifactRules = "*.jar => target/"
-            }
         }
-
-        requirements {
-            exists("env.JDK_17")
-            exists("env.DOCKER_HOST")
-        }
-    }
-
-    // Deploy to Staging configuration
-    val deployToStaging = buildType {
-        id("DeployToStaging")
-        name = "Deploy to Staging"
-        description = "Builds a Docker image and deploys to the Staging environment"
-
-        vcs {
-            root(DslContext.settingsRoot)
-        }
-
-        steps {
-            script {
-                name = "Build Docker Image"
-                scriptContent = """
-                    ./mvnw spring-boot:build-image -Dspring-boot.build-image.imageName=spring-petclinic:staging
-                """.trimIndent()
+        
+        features {
+            perfmon {
             }
-            script {
-                name = "Deploy to Staging Environment"
-                scriptContent = """
-                    echo "Deploying to Staging environment..."
-                    # Deployment commands would go here
-                    # For example:
-                    # docker run -d -p 8081:8080 --name spring-petclinic-staging spring-petclinic:staging
-                """.trimIndent()
-            }
-        }
-
-        dependencies {
-            snapshot(build) {
-                onDependencyFailure = FailureAction.FAIL_TO_START
-            }
-            artifacts(build) {
-                artifactRules = "*.jar => target/"
-            }
-        }
-
-        requirements {
-            exists("env.JDK_17")
-            exists("env.DOCKER_HOST")
-        }
-    }
-
-    // Deploy to Production configuration
-    buildType {
-        id("DeployToProd")
-        name = "Deploy to Production"
-        description = "Builds a Docker image and deploys to the Production environment"
-
-        vcs {
-            root(DslContext.settingsRoot)
-        }
-
-        steps {
-            script {
-                name = "Build Docker Image"
-                scriptContent = """
-                    ./mvnw spring-boot:build-image -Dspring-boot.build-image.imageName=spring-petclinic:prod
-                """.trimIndent()
-            }
-            script {
-                name = "Deploy to Production Environment"
-                scriptContent = """
-                    echo "Deploying to Production environment..."
-                    # Deployment commands would go here
-                    # For example:
-                    # docker run -d -p 80:8080 --name spring-petclinic-prod spring-petclinic:prod
-                """.trimIndent()
-            }
-        }
-
-        dependencies {
-            snapshot(deployToStaging) {
-                onDependencyFailure = FailureAction.FAIL_TO_START
-            }
-            artifacts(build) {
-                artifactRules = "*.jar => target/"
-            }
-        }
-
-        requirements {
-            exists("env.JDK_17")
-            exists("env.DOCKER_HOST")
         }
     }
 }
