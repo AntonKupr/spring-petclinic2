@@ -23,7 +23,7 @@ project {
     }
 
     // Build configuration
-    buildType {
+    val build = buildType {
         id("Build")
         name = "Build"
         description = "Builds the application, runs tests, and generates code coverage reports"
@@ -91,10 +91,10 @@ project {
         }
 
         dependencies {
-            snapshot(BuildTypeId("Build")) {
+            snapshot(build) {
                 onDependencyFailure = FailureAction.FAIL_TO_START
             }
-            artifacts(BuildTypeId("Build")) {
+            artifacts(build) {
                 artifactRules = "*.jar => target/"
             }
         }
@@ -106,7 +106,7 @@ project {
     }
 
     // Deploy to Staging configuration
-    buildType {
+    val deployToStaging = buildType {
         id("DeployToStaging")
         name = "Deploy to Staging"
         description = "Builds a Docker image and deploys to the Staging environment"
@@ -134,10 +134,10 @@ project {
         }
 
         dependencies {
-            snapshot(BuildTypeId("Build")) {
+            snapshot(build) {
                 onDependencyFailure = FailureAction.FAIL_TO_START
             }
-            artifacts(BuildTypeId("Build")) {
+            artifacts(build) {
                 artifactRules = "*.jar => target/"
             }
         }
@@ -177,10 +177,10 @@ project {
         }
 
         dependencies {
-            snapshot(BuildTypeId("DeployToStaging")) {
+            snapshot(deployToStaging) {
                 onDependencyFailure = FailureAction.FAIL_TO_START
             }
-            artifacts(BuildTypeId("Build")) {
+            artifacts(build) {
                 artifactRules = "*.jar => target/"
             }
         }
