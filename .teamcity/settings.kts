@@ -17,7 +17,7 @@ version = "2023.11"
 
 project {
     description = "Spring PetClinic TeamCity Configuration"
-    
+
     // Define VCS Root
     val vcsRoot = GitVcsRoot {
         id("SpringPetClinicVcs")
@@ -26,19 +26,19 @@ project {
         branch = "refs/heads/main"
         branchSpec = "+:refs/heads/*"
     }
-    
+
     vcsRoot(vcsRoot)
-    
+
     // Build Configuration
     buildType {
         id("Build")
         name = "Build"
         description = "Builds the application, runs tests, and generates code coverage reports"
-        
+
         vcs {
             root(vcsRoot)
         }
-        
+
         steps {
             // Clean and package with Maven
             maven {
@@ -47,7 +47,7 @@ project {
                 runnerArgs = "-Dmaven.test.failure.ignore=true"
                 jdkHome = "%env.JDK_17_0%"
             }
-            
+
             // Alternative Gradle build step
             gradle {
                 name = "Gradle Build (Alternative)"
@@ -56,61 +56,61 @@ project {
                 enabled = false // Disabled by default, can be enabled if needed
             }
         }
-        
+
         triggers {
             vcs {
                 branchFilter = "+:*"
             }
         }
-        
+
         features {
             perfmon {
             }
         }
-        
+
         artifactRules = """
             target/*.jar
             target/site/jacoco => coverage-reports.zip
         """.trimIndent()
     }
-    
+
     // Deploy Configuration
     buildType {
         id("Deploy")
         name = "Deploy"
         description = "Deploys the application to a specified environment"
-        
+
         vcs {
             root(vcsRoot)
         }
-        
+
         params {
             select("env.DEPLOY_ENV", "dev", label = "Deployment Environment", 
                    options = listOf("dev", "staging", "prod"))
         }
-        
+
         steps {
             // Build Docker image
             script {
                 name = "Build Docker Image"
                 scriptContent = """
                     #!/bin/bash
-                    
+
                     echo "Building Docker image for Spring PetClinic"
                     ./mvnw spring-boot:build-image -Dspring-boot.build-image.imageName=spring-petclinic:latest
                 """.trimIndent()
             }
-            
+
             // Deploy to environment
             script {
                 name = "Deploy to Environment"
                 scriptContent = """
                     #!/bin/bash
-                    
+
                     ENV="%env.DEPLOY_ENV%"
-                    echo "Deploying to $ENV environment"
-                    
-                    case "$ENV" in
+                    echo "Deploying to """ + "\$ENV" + """ environment"
+
+                    case """ + "\"\$ENV\"" + """ in
                         dev)
                             echo "Deploying to development environment"
                             # Add deployment commands for dev
@@ -124,20 +124,20 @@ project {
                             # Add deployment commands for production
                             ;;
                         *)
-                            echo "Unknown environment: $ENV"
+                            echo "Unknown environment: """ + "\$ENV" + """"
                             exit 1
                             ;;
                     esac
                 """.trimIndent()
             }
         }
-        
+
         dependencies {
             snapshot(RelativeId("Build")) {
                 onDependencyFailure = FailureAction.FAIL_TO_START
             }
         }
-        
+
         features {
             perfmon {
             }
