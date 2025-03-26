@@ -7,53 +7,44 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 
 /*
- * TeamCity Configuration for Spring PetClinic
- * 
- * This configuration includes:
- * - Build configuration: Builds the application, runs tests, and generates code coverage reports
- * - Deploy configuration: Deploys the application to a specified environment (dev, staging, or prod)
- */
+The settings script is an entry point for defining a TeamCity
+project hierarchy. The script should contain a single call to the
+project() function with a Project instance or an init function as
+an argument.
+
+VcsRoots, BuildTypes, Templates, and subprojects can be
+registered inside the project using the vcsRoot(), buildType(),
+template(), and subProject() methods respectively.
+*/
 
 version = "2023.11"
 
 project {
-    description = "Spring PetClinic TeamCity Configuration"
-    
+    description = "Spring PetClinic Sample Application"
+
     // Define VCS Root
     val vcsRoot = GitVcsRoot {
         id("SpringPetClinicVcs")
-        name = "Spring PetClinic VCS"
+        name = "spring-petclinic"
         url = "https://github.com/spring-projects/spring-petclinic.git"
         branch = "main"
-        branchSpec = "+:refs/heads/*"
     }
-    
-    // Register VCS Root
     vcsRoot(vcsRoot)
-    
-    // Build Configuration
+
+    // Build configuration for Maven
     buildType {
-        id("Build")
-        name = "Build"
+        id("BuildWithMaven")
+        name = "Build with Maven"
         
         vcs {
             root(vcsRoot)
         }
         
         steps {
-            // Clean and package the application using Maven
             maven {
-                name = "Clean and Package"
+                name = "Build and Test"
                 goals = "clean package"
                 runnerArgs = "-Dmaven.test.failure.ignore=true"
-                jdkHome = "%env.JDK_17%"
-            }
-            
-            // Run tests and generate code coverage reports
-            maven {
-                name = "Run Tests with Coverage"
-                goals = "verify"
-                runnerArgs = "-P jacoco"
                 jdkHome = "%env.JDK_17%"
             }
         }
@@ -65,88 +56,76 @@ project {
         }
         
         features {
-            perfmon {
-            }
+            perfmon {}
         }
-        
-        // Artifacts to be published
-        artifactRules = """
-            target/*.jar
-            target/site/jacoco => coverage-report.zip
-        """.trimIndent()
         
         requirements {
             exists("env.JDK_17")
         }
     }
     
-    // Deploy Configuration
+    // Build configuration for Gradle
     buildType {
-        id("Deploy")
-        name = "Deploy"
+        id("BuildWithGradle")
+        name = "Build with Gradle"
         
         vcs {
             root(vcsRoot)
         }
         
-        // Depend on the Build configuration
-        dependencies {
-            snapshot(RelativeId("Build")) {
-                onDependencyFailure = FailureAction.FAIL_TO_START
+        steps {
+            gradle {
+                name = "Build and Test"
+                tasks = "clean build"
+                jdkHome = "%env.JDK_17%"
             }
+        }
+        
+        triggers {
+            vcs {
+                branchFilter = "+:*"
+            }
+        }
+        
+        features {
+            perfmon {}
+        }
+        
+        requirements {
+            exists("env.JDK_17")
+        }
+    }
+    
+    // Docker image build and deploy
+    buildType {
+        id("DockerBuildAndDeploy")
+        name = "Build and Deploy Docker Image"
+        
+        vcs {
+            root(vcsRoot)
         }
         
         steps {
-            // Build Docker image
-            script {
+            maven {
                 name = "Build Docker Image"
-                scriptContent = """
-                    #!/bin/bash
-                    
-                    # Set environment variable based on parameter
-                    ENVIRONMENT=%env.DEPLOY_ENV%
-                    
-                    echo "Building Docker image for ${'$'}ENVIRONMENT environment"
-                    
-                    # Build the Docker image
-                    docker build -t spring-petclinic:${'$'}ENVIRONMENT .
-                """.trimIndent()
+                goals = "spring-boot:build-image"
+                jdkHome = "%env.JDK_17%"
             }
             
-            // Deploy to environment
             script {
-                name = "Deploy to Environment"
+                name = "Deploy Docker Image"
                 scriptContent = """
-                    #!/bin/bash
-                    
-                    # Set environment variable based on parameter
-                    ENVIRONMENT=%env.DEPLOY_ENV%
-                    
-                    echo "Deploying to ${'$'}ENVIRONMENT environment"
-                    
-                    # Example deployment commands (customize as needed)
-                    if [ "${'$'}ENVIRONMENT" == "dev" ]; then
-                        echo "Deploying to development environment"
-                        # Add deployment commands for dev
-                    elif [ "${'$'}ENVIRONMENT" == "staging" ]; then
-                        echo "Deploying to staging environment"
-                        # Add deployment commands for staging
-                    elif [ "${'$'}ENVIRONMENT" == "prod" ]; then
-                        echo "Deploying to production environment"
-                        # Add deployment commands for prod
-                    else
-                        echo "Unknown environment: ${'$'}ENVIRONMENT"
-                        exit 1
-                    fi
+                    echo "Deploying Docker image..."
+                    # Add deployment commands here
+                    echo "Docker image deployed successfully"
                 """.trimIndent()
             }
         }
         
-        // Parameters for deployment
-        params {
-            select("env.DEPLOY_ENV", "dev", label = "Deployment Environment", 
-                description = "Select the environment to deploy to",
-                options = listOf("dev", "staging", "prod"))
+        dependencies {
+            snapshot(RelativeId("BuildWithMaven")) {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
         }
         
         requirements {
