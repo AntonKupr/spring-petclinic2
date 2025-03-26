@@ -19,7 +19,6 @@ version = "2023.11"
 // Project configuration
 project {
     // Project details
-    name = "Spring PetClinic"
     description = "Spring PetClinic Sample Application"
 
     // VCS Root definition
