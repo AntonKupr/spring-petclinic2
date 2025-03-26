@@ -1,9 +1,9 @@
-import jetbrains.buildServer.configs.kotlin.v2023_11.*
-import jetbrains.buildServer.configs.kotlin.v2023_11.buildFeatures.perfmon
-import jetbrains.buildServer.configs.kotlin.v2023_11.buildSteps.maven
-import jetbrains.buildServer.configs.kotlin.v2023_11.buildSteps.script
-import jetbrains.buildServer.configs.kotlin.v2023_11.triggers.vcs
-import jetbrains.buildServer.configs.kotlin.v2023_11.Project
+import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.perfmon
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.maven
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
+import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 
 /*
 The settings script is an entry point for defining a TeamCity
