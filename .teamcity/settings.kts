@@ -7,130 +7,126 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 
 /*
- * Spring PetClinic TeamCity Configuration
+ * TeamCity Configuration for Spring PetClinic
  * 
- * This file defines the TeamCity build configurations for building and deploying
- * the Spring PetClinic application.
+ * This configuration includes:
+ * - Build configuration: Builds the application, runs tests, and generates code coverage reports
+ * - Deploy configuration: Deploys the application to a specified environment (dev, staging, or prod)
  */
 
-// The version of TeamCity DSL being used
 version = "2023.11"
 
-// Project configuration
 project {
-    // Project details
-    description = "Spring PetClinic Sample Application"
-
-    // VCS Root definition
+    description = "Spring PetClinic TeamCity Configuration"
+    
+    // Define VCS Root
     val vcsRoot = GitVcsRoot {
         id("SpringPetClinicVcs")
-        name = "Spring PetClinic Git Repository"
+        name = "Spring PetClinic VCS"
         url = "https://github.com/spring-projects/spring-petclinic.git"
         branch = "main"
         branchSpec = "+:refs/heads/*"
     }
+    
     vcsRoot(vcsRoot)
-
+    
     // Build Configuration
     buildType {
         id("Build")
         name = "Build"
         description = "Builds the application, runs tests, and generates code coverage reports"
-
+        
         vcs {
             root(vcsRoot)
         }
-
-        requirements {
-            contains("env.JDK_VERSION", "17")
-        }
-
+        
         steps {
-            // Maven build step
             maven {
                 name = "Clean and Package"
                 goals = "clean package"
                 runnerArgs = "-Dmaven.test.failure.ignore=true"
-                jdkHome = "%env.JDK_17_HOME%"
+                jdkHome = "%env.JDK_17%"
             }
         }
-
+        
         triggers {
             vcs {
                 branchFilter = "+:*"
             }
         }
-
+        
         features {
             perfmon {}
         }
-
+        
         artifactRules = """
             target/*.jar
             target/site/jacoco => coverage-reports.zip
         """.trimIndent()
     }
-
+    
     // Deploy Configuration
     buildType {
         id("Deploy")
         name = "Deploy"
-        description = "Deploys the application to a specified environment (dev, staging, or prod)"
-
+        description = "Deploys the application to a specified environment"
+        
         vcs {
             root(vcsRoot)
         }
-
-        requirements {
-            contains("env.JDK_VERSION", "17")
-            exists("docker.version")
-        }
-
+        
         params {
             select("env.DEPLOY_ENV", "dev", label = "Deployment Environment", 
-                options = listOf("dev", "staging", "prod"), 
-                description = "Select the environment to deploy to")
+                   description = "Select the environment to deploy to",
+                   options = listOf("dev", "staging", "prod"))
         }
-
+        
         steps {
             // Build Docker image
             script {
                 name = "Build Docker Image"
                 scriptContent = """
                     #!/bin/bash
-                    ./mvnw spring-boot:build-image -Dspring-boot.build-image.imageName=spring-petclinic:latest
+                    
+                    echo "Building Docker image for Spring PetClinic"
+                    docker build -t spring-petclinic:%build.number% .
                 """.trimIndent()
             }
-
-            // Deploy to environment
+            
+            // Deploy to selected environment
             script {
                 name = "Deploy to Environment"
                 scriptContent = """
                     #!/bin/bash
-                    echo "Deploying to %env.DEPLOY_ENV% environment..."
-
-                    # Example deployment script - customize as needed
+                    
+                    echo "Deploying to %env.DEPLOY_ENV% environment"
+                    
                     case "%env.DEPLOY_ENV%" in
-                        dev)
-                            echo "Deploying to development environment"
-                            # Add deployment commands for dev
-                            ;;
-                        staging)
-                            echo "Deploying to staging environment"
-                            # Add deployment commands for staging
-                            ;;
-                        prod)
-                            echo "Deploying to production environment"
-                            # Add deployment commands for prod
-                            ;;
-                        *)
-                            echo "Unknown environment: %env.DEPLOY_ENV%"
-                            exit 1
-                            ;;
+                      dev)
+                        echo "Deploying to development environment"
+                        # Add deployment commands for dev environment
+                        ;;
+                      staging)
+                        echo "Deploying to staging environment"
+                        # Add deployment commands for staging environment
+                        ;;
+                      prod)
+                        echo "Deploying to production environment"
+                        # Add deployment commands for production environment
+                        ;;
+                      *)
+                        echo "Unknown environment: %env.DEPLOY_ENV%"
+                        exit 1
+                        ;;
                     esac
                 """.trimIndent()
             }
         }
-
+        
+        dependencies {
+            snapshot(RelativeId("Build")) {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+        }
     }
 }
