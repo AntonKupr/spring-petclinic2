@@ -15,122 +15,54 @@ an argument.
 VcsRoots, BuildTypes, Templates, and subprojects can be
 registered inside the project using the vcsRoot(), buildType(),
 template(), and subProject() methods respectively.
+
+To debug settings scripts in IntelliJ IDEA, open the 'TeamCity'
+tool window (View -> Tool Windows -> TeamCity), then click the
+'Debug' button in the toolbar and select the desired settings file.
 */
 
-version = "2023.11"
+version = "2019.2"
 
 project {
     description = "Spring PetClinic Sample Application"
 
-    // Define VCS Root
-    val vcsRoot = GitVcsRoot {
-        id("SpringPetClinicVcs")
-        name = "spring-petclinic"
-        url = "https://github.com/spring-projects/spring-petclinic.git"
-        branch = "main"
-    }
-    vcsRoot(vcsRoot)
+    // Define Main VCS Root
+    val mainVcsRoot = DslContext.settingsRoot
 
-    // Build configuration for Maven
+    // Build Configuration
     buildType {
-        id("BuildWithMaven")
-        name = "Build with Maven"
-        
+        id("PetClinicBuild")
+        name = "Build and Test"
+        description = "Compiles code and runs tests"
+
         vcs {
-            root(vcsRoot)
+            root(mainVcsRoot)
         }
-        
+
         steps {
             maven {
-                name = "Build and Test"
+                name = "Compile and Test"
                 goals = "clean package"
                 runnerArgs = "-Dmaven.test.failure.ignore=true"
-                jdkHome = "%env.JDK_17%"
+                userSettingsSelection = "local-proxy"
             }
         }
-        
+
         triggers {
             vcs {
                 branchFilter = "+:*"
             }
         }
-        
+
         features {
-            perfmon {}
-        }
-        
-        requirements {
-            exists("env.JDK_17")
-        }
-    }
-    
-    // Build configuration for Gradle
-    buildType {
-        id("BuildWithGradle")
-        name = "Build with Gradle"
-        
-        vcs {
-            root(vcsRoot)
-        }
-        
-        steps {
-            gradle {
-                name = "Build and Test"
-                tasks = "clean build"
-                jdkHome = "%env.JDK_17%"
+            perfmon {
             }
         }
-        
-        triggers {
-            vcs {
-                branchFilter = "+:*"
-            }
-        }
-        
-        features {
-            perfmon {}
-        }
-        
-        requirements {
-            exists("env.JDK_17")
-        }
-    }
-    
-    // Docker image build and deploy
-    buildType {
-        id("DockerBuildAndDeploy")
-        name = "Build and Deploy Docker Image"
-        
-        vcs {
-            root(vcsRoot)
-        }
-        
-        steps {
-            maven {
-                name = "Build Docker Image"
-                goals = "spring-boot:build-image"
-                jdkHome = "%env.JDK_17%"
-            }
-            
-            script {
-                name = "Deploy Docker Image"
-                scriptContent = """
-                    echo "Deploying Docker image..."
-                    # Add deployment commands here
-                    echo "Docker image deployed successfully"
-                """.trimIndent()
-            }
-        }
-        
-        dependencies {
-            snapshot(RelativeId("BuildWithMaven")) {
-                onDependencyFailure = FailureAction.FAIL_TO_START
-            }
-        }
-        
-        requirements {
-            exists("env.JDK_17")
-            exists("docker")
-        }
+
+        artifactRules = """
+            target/*.jar => petclinic.zip
+            target/classes => classes.zip
+            target/test-classes => test-classes.zip
+        """.trimIndent()
     }
 }
