@@ -44,7 +44,6 @@ project {
                 name = "Compile and Test"
                 goals = "clean package"
                 runnerArgs = "-Dmaven.test.failure.ignore=true"
-                userSettingsSelection = "local-proxy"
             }
         }
 
